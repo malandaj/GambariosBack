@@ -1,18 +1,20 @@
-from channels.generic.websocket import WebsocketConsumer
-import json
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from channels.db import database_sync_to_async
+from temperature.models import Temperatura
+from django.core import serializers
 
 
-class TemperatureConsumer(WebsocketConsumer):
-    def connect(self):
-        self.accept()
+class TemperatureConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        await self.accept()
 
-    def disconnect(self, close_code):
+    async def disconnect(self, close_code):
         pass
 
-    def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json['message']
+    async def receive_json(self, content):
+        message = await self.get_all_temperatures()
+        await self.send_json(content=message)
 
-        self.send(text_data=json.dumps({
-            'message': message
-        }))
+    @database_sync_to_async
+    def get_current_temperature(self):
+        return serializers.serialize('json', [Temperatura.objects.last()])
